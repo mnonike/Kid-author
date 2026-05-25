@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Panel | Kid Authors Challenge</title>
+    <link href="https://fonts.googleapis.com/css2?family=Bubblegum+Sans&family=Baloo+2:wght@400..800&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Baloo 2', sans-serif;
+            background: #F8F9FF;
+            margin: 0;
+            padding: 20px;
+        }
+        h1 {
+            font-family: 'Bubblegum Sans', cursive;
+            color: #2D234A;
+            text-align: center;
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 20px;
+            margin: 30px auto;
+            max-width: 1200px;
+        }
+        .card {
+            background: #fff;
+            border-radius: 26px;
+            padding: 20px;
+            box-shadow: 0 6px 20px rgba(0,0,0,0.08);
+            border: 2px solid #F0EBF8;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+        .card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 10px 28px rgba(0,0,0,0.12);
+        }
+        .card h3 {
+            margin: 0 0 5px;
+            color: #4A3670;
+        }
+        .card .book-title {
+            font-weight: 600;
+            color: #FF4757;
+        }
+        .details {
+            display: none;
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 2px dashed #DDD;
+        }
+        .card.expanded .details {
+            display: block;
+        }
+        .profile-pic {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            object-fit: cover;
+            background: #F0EBF8;
+            margin: 0 auto 10px;
+            display: block;
+        }
+        .download-btn {
+            display: inline-block;
+            margin-top: 10px;
+            padding: 8px 16px;
+            background: #26DE81;
+            color: #fff;
+            border-radius: 60px;
+            text-decoration: none;
+            font-weight: 600;
+        }
+        .admin-section {
+            max-width: 1200px;
+            margin: 30px auto;
+            background: #fff;
+            border-radius: 26px;
+            padding: 24px;
+            box-shadow: 0 6px 20px rgba(0,0,0,0.08);
+            border: 2px solid #F0EBF8;
+        }
+        .admin-section h2 {
+            font-family: 'Bubblegum Sans', cursive;
+            color: #2D234A;
+            margin-top: 0;
+        }
+        .btn {
+            padding: 10px 20px;
+            border-radius: 60px;
+            font-weight: 700;
+            border: none;
+            cursor: pointer;
+            font-family: inherit;
+            font-size: 1rem;
+            transition: transform 0.2s;
+        }
+        .btn:hover { transform: scale(1.02); }
+        .btn-generate { background: #26DE81; color: #fff; }
+        .btn-reset { background: #FF4757; color: #fff; font-size: 0.85rem; padding: 6px 14px; }
+        .pin-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+            gap: 16px;
+            margin-top: 20px;
+        }
+        .pin-card {
+            background: #FAFAFE;
+            border: 2px solid #E8E3F0;
+            border-radius: 20px;
+            padding: 16px;
+            position: relative;
+        }
+        .pin-card.used { border-color: #FFD0D5; background: #FFF5F5; }
+        .pin-card.available { border-color: #D0FFE8; background: #E8FFF4; }
+        .pin-number {
+            font-family: 'Bubblegum Sans', cursive;
+            font-size: 1.5rem;
+            color: #4A3670;
+            letter-spacing: 0.1em;
+        }
+        .pin-status {
+            font-size: 0.8rem;
+            font-weight: 700;
+            margin-top: 4px;
+        }
+        .pin-status.used { color: #FF4757; }
+        .pin-status.available { color: #26DE81; }
+        .pin-meta {
+            font-size: 0.75rem;
+            color: #7A7090;
+            margin-top: 6px;
+            line-height: 1.4;
+        }
+        .pin-actions {
+            margin-top: 10px;
+            display: flex;
+            gap: 8px;
+        }
+        .new-pin-banner {
+            display: none;
+            background: #E8FFF4;
+            border: 2px solid #26DE81;
+            border-radius: 16px;
+            padding: 16px;
+            margin-bottom: 20px;
+            text-align: center;
+            color: #1DB864;
+            font-weight: 700;
+            font-size: 1.1rem;
+        }
+    </style>
+</head>
+<body>
+    <h1>📚 Admin Panel — Registered Young Authors</h1>
+    
+    <div class="admin-section">
+        <h2>🔐 PIN Management</h2>
+        <button class="btn btn-generate" id="generatePinBtn">Generate New PIN</button>
+        <div class="new-pin-banner" id="newPinBanner"></div>
+        <div class="pin-grid" id="pinGrid">Loading PINs...</div>
+    </div>
+
+    <div class="grid" id="userGrid">Loading users...</div>
+
+    <script>
+        async function loadUsers() {
+            try {
+                const res = await fetch('/api/users');
+                const users = await res.json();
+                const grid = document.getElementById('userGrid');
+                if (!users.length) {
+                    grid.innerHTML = '<p style="text-align:center; color:#7A7090;">No users registered yet.</p>';
+                    return;
+                }
+                grid.innerHTML = users.map(user => `
+                    <div class="card" onclick="this.classList.toggle('expanded')">
+                        <h3>${user.fullName}</h3>
+                        <p class="book-title">${user.book ? '📖 ' + user.book.title : 'No book uploaded'}</p>
+                        <div class="details">
+                            ${user.profilePic ? `<img src="${user.profilePic}" class="profile-pic" alt="Profile">` : '<div class="profile-pic" style="display:flex;align-items:center;justify-content:center;">👤</div>'}
+                            <p><strong>Username:</strong> ${user.username || 'N/A'}</p>
+                            <p><strong>Email:</strong> ${user.email || 'N/A'}</p>
+                            <p><strong>Phone:</strong> ${user.phoneNumber}</p>
+                            <p><strong>Age:</strong> ${user.age}</p>
+                            <p><strong>Class:</strong> ${user.classLevel}</p>
+                            <p><strong>School:</strong> ${user.schoolName}</p>
+                            <p><strong>Location:</strong> ${user.location}</p>
+                            <p><strong>PIN:</strong> ${user.pin || 'N/A'}</p>
+                            <p><strong>Device:</strong> ${user.deviceId ? user.deviceId.substring(0, 40) + '...' : 'N/A'}</p>
+                            ${user.book ? `
+                                <p><strong>Book:</strong> ${user.book.title}</p>
+                                <a href="${user.book.pdfPath}" class="download-btn" download>⬇ Download PDF</a>
+                            ` : '<p>No PDF book yet.</p>'}
+                        </div>
+                    </div>
+                `).join('');
+            } catch (err) {
+                document.getElementById('userGrid').innerHTML = '<p style="color:red; text-align:center;">Error loading users.</p>';
+            }
+        }
+
+        async function loadPins() {
+            try {
+                const res = await fetch('/api/admin/pins');
+                const pins = await res.json();
+                const grid = document.getElementById('pinGrid');
+                if (!pins.length) {
+                    grid.innerHTML = '<p style="color:#7A7090;">No PINs generated yet.</p>';
+                    return;
+                }
+                grid.innerHTML = pins.map(p => {
+                    const isUsed = p.used;
+                    const statusClass = isUsed ? 'used' : 'available';
+                    const statusText = isUsed ? 'USED' : 'AVAILABLE';
+                    const userInfo = p.username ? `<div class="pin-meta">User: ${p.username}<br>Email: ${p.email}</div>` : '';
+                    const deviceInfo = p.deviceId ? `<div class="pin-meta">Device: ${p.deviceId.substring(0, 30)}...</div>` : '';
+                    const expiry = p.expiresAt ? `<div class="pin-meta">Expires: ${new Date(p.expiresAt).toLocaleDateString()}</div>` : '';
+                    const locked = p.lockedUntil && new Date(p.lockedUntil) > new Date() ? `<div class="pin-meta" style="color:#FF4757;">🔒 Locked until ${new Date(p.lockedUntil).toLocaleTimeString()}</div>` : '';
+
+                    return `
+                        <div class="pin-card ${statusClass}">
+                            <div class="pin-number">${p.pin}</div>
+                            <div class="pin-status ${statusClass}">${statusText}</div>
+                            ${expiry}
+                            ${userInfo}
+                            ${deviceInfo}
+                            ${locked}
+                            <div class="pin-actions">
+                                <button class="btn btn-reset" onclick="resetDevice('${p.pin}')">Reset Device</button>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            } catch (err) {
+                document.getElementById('pinGrid').innerHTML = '<p style="color:red;">Error loading PINs.</p>';
+            }
+        }
+
+        document.getElementById('generatePinBtn').addEventListener('click', async () => {
+            const btn = document.getElementById('generatePinBtn');
+            btn.textContent = 'Generating...';
+            try {
+                const res = await fetch('/api/admin/generate-pin', { method: 'POST' });
+                const data = await res.json();
+                if (data.success) {
+                    const banner = document.getElementById('newPinBanner');
+                    banner.style.display = 'block';
+                    banner.textContent = `✅ New PIN Generated: ${data.pin} (Expires: ${new Date(data.expiresAt).toLocaleDateString()})`;
+                    loadPins();
+                } else {
+                    alert(data.message || 'Failed to generate PIN');
+                }
+            } catch (err) {
+                alert('Network error');
+            } finally {
+                btn.textContent = 'Generate New PIN';
+            }
+        });
+
+        async function resetDevice(pin) {
+            if (!confirm(`Reset device binding for PIN ${pin}? This will allow reuse on a new device.`)) return;
+            try {
+                const res = await fetch('/api/admin/reset-device', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ pin })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    alert(data.message);
+                    loadPins();
+                    loadUsers();
+                } else {
+                    alert(data.message || 'Reset failed');
+                }
+            } catch (err) {
+                alert('Network error');
+            }
+        }
+
+        loadUsers();
+        loadPins();
+    </script>
+</body>
+</html>

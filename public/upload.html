@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Upload Your Book | Kid Authors Challenge</title>
+    <link href="https://fonts.googleapis.com/css2?family=Bubblegum+Sans&family=Baloo+2:wght@400..800&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Baloo 2', sans-serif;
+            background: linear-gradient(135deg, #FFF5F5, #F8F9FF);
+            margin: 0;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .container {
+            background: #fff;
+            border-radius: 34px;
+            padding: 40px 30px;
+            max-width: 500px;
+            width: 90%;
+            box-shadow: 0 10px 32px rgba(0,0,0,0.1);
+            border: 3px solid #F0EBF8;
+        }
+        h1 {
+            font-family: 'Bubblegum Sans', cursive;
+            text-align: center;
+            color: #2D234A;
+        }
+        .input-group {
+            margin-bottom: 20px;
+        }
+        label {
+            font-weight: 600;
+            display: block;
+            margin-bottom: 6px;
+            color: #4A3670;
+        }
+        input[type="text"], input[type="file"] {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2.5px solid #E8E3F0;
+            border-radius: 20px;
+            font-size: 1rem;
+            font-family: inherit;
+            transition: border 0.3s;
+        }
+        input:focus {
+            border-color: #45AAF2;
+            outline: none;
+        }
+        .btn {
+            display: block;
+            width: 100%;
+            padding: 16px;
+            background: linear-gradient(135deg, #FF4757, #FF6B35);
+            color: #fff;
+            font-weight: 700;
+            font-size: 1.1rem;
+            border: none;
+            border-radius: 60px;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+        .btn:hover {
+            transform: scale(1.02);
+        }
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+        .message {
+            text-align: center;
+            margin-top: 15px;
+            font-weight: 600;
+        }
+        .error { color: #FF4757; }
+        .success { color: #26DE81; }
+        .session-info {
+            background: #E8FFF4;
+            border-radius: 16px;
+            padding: 12px 16px;
+            margin-bottom: 20px;
+            text-align: center;
+            color: #1DB864;
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container" id="mainContainer">
+        <h1>📤 Submit Your Story</h1>
+        <div class="session-info" id="sessionInfo">Checking session...</div>
+        <p style="text-align:center; color:#4A4060;">Fill in your book title and upload your PDF</p>
+        
+        <form id="uploadForm">
+            <div class="input-group">
+                <label for="bookTitle">Book Title</label>
+                <input type="text" id="bookTitle" placeholder="e.g., The Magic Pen" required>
+            </div>
+            <div class="input-group">
+                <label for="bookPdf">Your Story (PDF only)</label>
+                <input type="file" id="bookPdf" accept=".pdf" required>
+            </div>
+            <button type="submit" class="btn" id="submitBtn">🚀 Upload Book</button>
+        </form>
+        <div id="message" class="message"></div>
+    </div>
+
+    <script>
+        const token = localStorage.getItem('kac_token');
+        const userId = localStorage.getItem('kac_userId');
+        const sessionInfo = document.getElementById('sessionInfo');
+        const mainContainer = document.getElementById('mainContainer');
+
+        // Fallback to URL param if localStorage missing
+        const params = new URLSearchParams(window.location.search);
+        const urlUserId = params.get('userId');
+
+        const effectiveUserId = userId || urlUserId;
+
+        if (!token || !effectiveUserId) {
+            document.body.innerHTML = `
+                <div style="display:flex;align-items:center;justify-content:center;height:100vh;flex-direction:column; padding: 20px; text-align: center;">
+                    <h2 style="color:#2D234A; font-family: Bubblegum Sans, cursive;">Session Expired</h2>
+                    <p style="color:#4A4060; max-width: 400px;">Your session has expired or you are not logged in. Please return to the homepage to register or login with your PIN.</p>
+                    <a href="/" style="display:inline-block; margin-top:16px; padding: 12px 28px; background: #FF4757; color: #fff; border-radius: 60px; text-decoration: none; font-weight: 700;">Go to Homepage</a>
+                </div>
+            `;
+        } else {
+            sessionInfo.textContent = '✅ Session active. Ready to upload.';
+        }
+
+        document.getElementById('uploadForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const bookTitle = document.getElementById('bookTitle').value.trim();
+            const pdfFile = document.getElementById('bookPdf').files[0];
+            const messageEl = document.getElementById('message');
+            const submitBtn = document.getElementById('submitBtn');
+
+            if (!bookTitle || !pdfFile) {
+                messageEl.textContent = 'Please provide both title and PDF file.';
+                messageEl.className = 'message error';
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('bookTitle', bookTitle);
+            formData.append('bookPdf', pdfFile);
+
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Uploading...';
+
+            try {
+                const response = await fetch(`/api/upload/${effectiveUserId}`, {
+                    method: 'POST',
+                    headers: { 'Authorization': 'Bearer ' + token },
+                    body: formData
+                });
+                const data = await response.json();
+                if (data.success) {
+                    messageEl.textContent = '✅ Book uploaded successfully!';
+                    messageEl.className = 'message success';
+                    submitBtn.textContent = 'Done!';
+                    setTimeout(() => {
+                        window.location.href = '/';
+                    }, 3000);
+                } else {
+                    throw new Error(data.message || 'Upload failed');
+                }
+            } catch (err) {
+                messageEl.textContent = '❌ ' + err.message;
+                messageEl.className = 'message error';
+                submitBtn.disabled = false;
+                submitBtn.textContent = '🚀 Upload Book';
+            }
+        });
+    </script>
+</body>
+</html>
